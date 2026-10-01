@@ -423,253 +423,6 @@ if success and code then
     Tab2:AddSwitch("夜视",function(state) ToggleNightVision(state) end)
     Tab2:AddSwitch("除雾",function(state) ToggleNoFog(state) end)
 
-    -- ==================== 天线（屏幕顶部 → 敌人头顶） ====================
-    local tracersOn = false
-    local tracerGui = nil
-    local tracerFolder = nil
-    local tracerConn = nil
-
-    local function CreateTracerForPlayer(plr)
-        if not tracerFolder then return end
-        if tracerFolder:FindFirstChild(plr.Name) then return end
-        local line = Instance.new("Frame")
-        line.Name = plr.Name
-        line.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-        line.BorderSizePixel = 0
-        line.Visible = false
-        line.ZIndex = 5
-        line.AnchorPoint = Vector2.new(0.5, 0.5)
-        line.Parent = tracerFolder
-    end
-
-    local function ToggleTracer(state)
-        tracersOn = state
-        if tracerConn then tracerConn:Disconnect() tracerConn = nil end
-
-        if not state then
-            if tracerGui then tracerGui:Destroy() tracerGui = nil end
-            tracerFolder = nil
-            return
-        end
-
-        if tracerGui then tracerGui:Destroy() end
-        tracerGui = Instance.new("ScreenGui")
-        tracerGui.Name = "TracerGui"
-        tracerGui.ResetOnSpawn = false
-        tracerGui.IgnoreGuiInset = true
-        tracerGui.Parent = lp.PlayerGui
-
-        tracerFolder = Instance.new("Folder")
-        tracerFolder.Name = "Tracers"
-        tracerFolder.Parent = tracerGui
-
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= lp then CreateTracerForPlayer(plr) end
-        end
-
-        Players.PlayerAdded:Connect(function(plr)
-            if tracersOn and plr ~= lp then CreateTracerForPlayer(plr) end
-        end)
-
-        Players.PlayerRemoving:Connect(function(plr)
-            if tracerFolder then
-                local line = tracerFolder:FindFirstChild(plr.Name)
-                if line then line:Destroy() end
-            end
-        end)
-
-        tracerConn = RunService.RenderStepped:Connect(function()
-            if not tracersOn or not tracerFolder then return end
-            local cam = workspace.CurrentCamera
-            local startPos = Vector2.new(cam.ViewportSize.X / 2, 0)
-
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr ~= lp then
-                    local line = tracerFolder:FindFirstChild(plr.Name)
-                    if not line then
-                        CreateTracerForPlayer(plr)
-                        line = tracerFolder:FindFirstChild(plr.Name)
-                    end
-                    if line then
-                        local pChar = plr.Character
-                        local valid = false
-                        if pChar and pChar.Parent then
-                            local hrp = pChar:FindFirstChild("HumanoidRootPart")
-                            local head = pChar:FindFirstChild("Head")
-                            local hum = pChar:FindFirstChildOfClass("Humanoid")
-                            if hrp and hum and hum.Health > 0 then
-                                local target3D = (head and head.Position) or hrp.Position
-                                local endPos, onScreen = cam:WorldToViewportPoint(target3D)
-                                if onScreen and endPos.Z > 0 then
-                                    local ep = Vector2.new(endPos.X, endPos.Y)
-                                    local delta = ep - startPos
-                                    local length = delta.Magnitude
-                                    local midPos = (startPos + ep) / 2
-                                    local angle = math.deg(math.atan2(delta.Y, delta.X)) - 90
-                                    line.Position = UDim2.new(0, midPos.X, 0, midPos.Y)
-                                    line.Size = UDim2.new(0, length, 0, 1.5)
-                                    line.Rotation = angle
-                                    line.Visible = true
-                                    valid = true
-                                end
-                            end
-                        end
-                        if not valid then
-                            line.Visible = false
-                        end
-                    end
-                end
-            end
-        end)
-    end
-
-    Tab2:AddSwitch("天线透视", function(state) ToggleTracer(state) end)
-
-    -- ==================== ESP 透视（修复版） ====================
-    local espOn = false
-    local espGui = nil
-    local espFolder = nil
-    local espConn = nil
-
-    local function CreateESPForPlayer(plr)
-        if not espFolder then return end
-        if espFolder:FindFirstChild(plr.Name) then return end
-        local box = Instance.new("Frame")
-        box.Name = plr.Name
-        box.BackgroundTransparency = 1
-        box.BorderSizePixel = 0
-        box.Visible = false
-        box.Parent = espFolder
-
-        local stroke = Instance.new("UIStroke")
-        stroke.Name = "Stroke"
-        stroke.Color = Color3.fromRGB(255, 0, 0)
-        stroke.Thickness = 1.5
-        stroke.Parent = box
-
-        local info = Instance.new("TextLabel")
-        info.Name = "Info"
-        info.BackgroundTransparency = 1
-        info.TextColor3 = Color3.fromRGB(255, 255, 255)
-        info.TextStrokeTransparency = 0
-        info.Font = Enum.Font.SourceSansBold
-        info.TextSize = 12
-        info.TextXAlignment = Enum.TextXAlignment.Center
-        info.Parent = box
-        info.AnchorPoint = Vector2.new(0.5, 1)
-        info.Position = UDim2.new(0.5, 0, 0, -3)
-        info.Size = UDim2.new(0, 200, 0, 40)
-    end
-
-    local function ToggleESP(state)
-        espOn = state
-        if espConn then espConn:Disconnect() espConn = nil end
-
-        if not state then
-            if espGui then espGui:Destroy() espGui = nil end
-            espFolder = nil
-            return
-        end
-
-        if espGui then espGui:Destroy() end
-        espGui = Instance.new("ScreenGui")
-        espGui.Name = "EspGui"
-        espGui.ResetOnSpawn = false
-        espGui.IgnoreGuiInset = true
-        espGui.Parent = lp.PlayerGui
-
-        espFolder = Instance.new("Folder")
-        espFolder.Name = "Boxes"
-        espFolder.Parent = espGui
-
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= lp then CreateESPForPlayer(plr) end
-        end
-
-        local addConn = Players.PlayerAdded:Connect(function(plr)
-            if espOn and plr ~= lp then CreateESPForPlayer(plr) end
-        end)
-
-        local removeConn = Players.PlayerRemoving:Connect(function(plr)
-            if espFolder then
-                local box = espFolder:FindFirstChild(plr.Name)
-                if box then box:Destroy() end
-            end
-        end)
-
-        espConn = RunService.RenderStepped:Connect(function()
-            if not espOn or not espFolder then return end
-            local cam = workspace.CurrentCamera
-            local char = lp.Character
-            if not char then return end
-            local myHrp = char:FindFirstChild("HumanoidRootPart")
-            if not myHrp then return end
-
-            local aliveNames = {}
-
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr ~= lp then
-                    aliveNames[plr.Name] = true
-                    local box = espFolder:FindFirstChild(plr.Name)
-                    if not box then
-                        CreateESPForPlayer(plr)
-                        box = espFolder:FindFirstChild(plr.Name)
-                    end
-                    if box then
-                        local pChar = plr.Character
-                        local valid = false
-                        if pChar and pChar.Parent then
-                            local hrp = pChar:FindFirstChild("HumanoidRootPart")
-                            local hum = pChar:FindFirstChildOfClass("Humanoid")
-                            local head = pChar:FindFirstChild("Head")
-                            if hrp and hum and head and hum.Health > 0 then
-                                local headPos, onScreen1 = cam:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
-                                local footPos, onScreen2 = cam:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
-                                if (onScreen1 or onScreen2) and headPos.Z > 0 then
-                                    local height = math.abs(headPos.Y - footPos.Y)
-                                    local width = height * 0.6
-                                    if height > 0 and height < 2000 then
-                                        local topLeftX = headPos.X - width / 2
-                                        local topLeftY = headPos.Y
-                                        box.Position = UDim2.new(0, topLeftX, 0, topLeftY)
-                                        box.Size = UDim2.new(0, width, 0, height)
-                                        local dist = math.floor((myHrp.Position - hrp.Position).Magnitude)
-                                        local hp = math.floor(hum.Health)
-                                        local maxHp = math.floor(hum.MaxHealth)
-                                        local info = box:FindFirstChild("Info")
-                                        if info then
-                                            info.Text = string.format("%s\n%d/%d\n距离:%d", plr.Name, hp, maxHp, dist)
-                                        end
-                                        box.Visible = true
-                                        valid = true
-                                    end
-                                end
-                            end
-                        end
-                        if not valid then
-                            box.Visible = false
-                        end
-                    end
-                end
-            end
-
-            for _, child in ipairs(espFolder:GetChildren()) do
-                if not aliveNames[child.Name] then
-                    child:Destroy()
-                end
-            end
-        end)
-
-        espGui.AncestryChanged:Connect(function(_, parent)
-            if not parent and espConn then
-                espConn:Disconnect()
-                espConn = nil
-            end
-        end)
-    end
-
-    Tab2:AddSwitch("ESP透视", function(state) ToggleESP(state) end)
-
     local Tab3 = Window:CreateTab("飞行")
     Tab3:AddSwitch("恐飞行",function(state) ToggleKongFly(state) end)
     Tab3:AddSwitch("柳叶飞行",function(state)
@@ -1084,6 +837,24 @@ if success and code then
         end
     end)
 
+    Tab6:AddSwitch("芭蕾旋转", function(state)
+        if state then
+            local char = lp.Character
+            if not char then return end
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                local anim = Instance.new("Animation")
+                anim.AnimationId = "rbxassetid://3019648231"
+                local track = hum:LoadAnimation(anim)
+                track.Looped = true
+                track:Play()
+                _G._balletTrack = track
+            end
+        else
+            if _G._balletTrack then _G._balletTrack:Stop() _G._balletTrack = nil end
+        end
+    end)
+
     Tab6:AddSwitch("挥拳动作", function(state)
         if state then
             local char = lp.Character
@@ -1135,6 +906,24 @@ if success and code then
             end
         else
             if _G._discoTrack then _G._discoTrack:Stop() _G._discoTrack = nil end
+        end
+    end)
+
+    Tab6:AddSwitch("埃及舞", function(state)
+        if state then
+            local char = lp.Character
+            if not char then return end
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                local anim = Instance.new("Animation")
+                anim.AnimationId = "rbxassetid://507770421"
+                local track = hum:LoadAnimation(anim)
+                track.Looped = true
+                track:Play()
+                _G._egyptTrack = track
+            end
+        else
+            if _G._egyptTrack then _G._egyptTrack:Stop() _G._egyptTrack = nil end
         end
     end)
 
@@ -1333,6 +1122,19 @@ if success and code then
     end)
 
     -- ==================== 角色变形类 ====================
+    Tab6:AddSlider("人物大小缩放", 10, 300, 100, function(val)
+        local char = lp.Character
+        if not char then return end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            local scale = val / 100
+            hum.BodyDepthScale.Value = scale
+            hum.BodyWidthScale.Value = scale
+            hum.BodyHeightScale.Value = scale
+            hum.HeadScale.Value = scale
+        end
+    end)
+
     Tab6:AddSlider("人物透明度", 0, 100, 0, function(val)
         local char = lp.Character
         if not char then return end
@@ -1350,6 +1152,79 @@ if success and code then
 
     Tab6:AddSlider("拖尾长度", 1, 50, 5, function(val)
         if selfTrail then selfTrail.Lifetime = val / 10 end
+    end)
+
+    -- ==================== 颜色类 ====================
+    Tab6:AddButton("人物变红", function()
+        local char = lp.Character
+        if not char then return end
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.Color = Color3.fromRGB(255, 0, 0) end
+        end
+    end)
+
+    Tab6:AddButton("人物变绿", function()
+        local char = lp.Character
+        if not char then return end
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.Color = Color3.fromRGB(0, 255, 0) end
+        end
+    end)
+
+    Tab6:AddButton("人物变蓝", function()
+        local char = lp.Character
+        if not char then return end
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.Color = Color3.fromRGB(0, 100, 255) end
+        end
+    end)
+
+    Tab6:AddButton("人物变白", function()
+        local char = lp.Character
+        if not char then return end
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.Color = Color3.fromRGB(255, 255, 255) end
+        end
+    end)
+
+    Tab6:AddButton("人物变黑", function()
+        local char = lp.Character
+        if not char then return end
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.Color = Color3.fromRGB(0, 0, 0) end
+        end
+    end)
+
+    Tab6:AddButton("人物变金色", function()
+        local char = lp.Character
+        if not char then return end
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.Color = Color3.fromRGB(255, 215, 0) end
+        end
+    end)
+
+    Tab6:AddButton("人物变紫色", function()
+        local char = lp.Character
+        if not char then return end
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then part.Color = Color3.fromRGB(128, 0, 255) end
+        end
+    end)
+
+    Tab6:AddButton("人物变彩虹", function()
+        local char = lp.Character
+        if not char then return end
+        task.spawn(function()
+            local hue = 0
+            while char and char.Parent do
+                hue = (hue + 0.02) % 1
+                local color = Color3.fromHSV(hue, 1, 1)
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then part.Color = color end
+                end
+                task.wait(0.1)
+            end
+        end)
     end)
 
     -- ==================== 特效附加类 ====================
